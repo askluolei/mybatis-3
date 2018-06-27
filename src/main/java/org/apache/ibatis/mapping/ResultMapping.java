@@ -26,6 +26,7 @@ import org.apache.ibatis.type.TypeHandler;
 import org.apache.ibatis.type.TypeHandlerRegistry;
 
 /**
+ * java 对象属性 跟数据库表的列映射
  * @author Clinton Begin
  */
 public class ResultMapping {

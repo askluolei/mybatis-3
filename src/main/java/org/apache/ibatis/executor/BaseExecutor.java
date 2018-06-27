@@ -45,22 +45,26 @@ import org.apache.ibatis.transaction.Transaction;
 import org.apache.ibatis.type.TypeHandlerRegistry;
 
 /**
+ * 执行器的基类
+ * 留了4个抽象方法带子类实现，接口的其他方法，这里实现了
+ * doUpdate doQuery doQueryCursor doFlushStatements
+ * 这里有个是模板设计模式
  * @author Clinton Begin
  */
 public abstract class BaseExecutor implements Executor {
 
   private static final Log log = LogFactory.getLog(BaseExecutor.class);
 
-  protected Transaction transaction;
+  protected Transaction transaction;// 事务管理
   protected Executor wrapper;
 
   protected ConcurrentLinkedQueue<DeferredLoad> deferredLoads;
   protected PerpetualCache localCache;
   protected PerpetualCache localOutputParameterCache;
-  protected Configuration configuration;
+  protected Configuration configuration;// 全局配置
 
   protected int queryStack;
-  private boolean closed;
+  private boolean closed;// 关闭标记
 
   protected BaseExecutor(Configuration configuration, Transaction transaction) {
     this.transaction = transaction;
@@ -131,14 +135,18 @@ public abstract class BaseExecutor implements Executor {
 
   @Override
   public <E> List<E> query(MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler) throws SQLException {
+    // 获取sql
     BoundSql boundSql = ms.getBoundSql(parameter);
+    // cache key
     CacheKey key = createCacheKey(ms, parameter, rowBounds, boundSql);
+    // 查询
     return query(ms, parameter, rowBounds, resultHandler, key, boundSql);
  }
 
   @SuppressWarnings("unchecked")
   @Override
   public <E> List<E> query(MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, CacheKey key, BoundSql boundSql) throws SQLException {
+    // 记录执行信息
     ErrorContext.instance().resource(ms.getResource()).activity("executing a query").object(ms.getId());
     if (closed) {
       throw new ExecutorException("Executor was closed.");
@@ -149,21 +157,26 @@ public abstract class BaseExecutor implements Executor {
     List<E> list;
     try {
       queryStack++;
+      // 如果有自定义 resultHandler ，那就走不了缓存了（一级缓存）
       list = resultHandler == null ? (List<E>) localCache.getObject(key) : null;
       if (list != null) {
+        // 这里是处理 CALLABLE 存储过程的，一般用不着
         handleLocallyCachedOutputParameters(ms, key, parameter, boundSql);
       } else {
+        // 缓存没取到，就从数据库里面获取
         list = queryFromDatabase(ms, parameter, rowBounds, resultHandler, key, boundSql);
       }
     } finally {
       queryStack--;
     }
     if (queryStack == 0) {
+      // 需要延时加载的，全部加载
       for (DeferredLoad deferredLoad : deferredLoads) {
         deferredLoad.load();
       }
       // issue #601
       deferredLoads.clear();
+      // 如果缓存是依次 statement 的，那就清空缓存
       if (configuration.getLocalCacheScope() == LocalCacheScope.STATEMENT) {
         // issue #482
         clearLocalCache();
@@ -267,6 +280,8 @@ public abstract class BaseExecutor implements Executor {
     }
   }
 
+  // 这里留几个具体实现方法，留给子类
+
   protected abstract int doUpdate(MappedStatement ms, Object parameter)
       throws SQLException;
 
@@ -321,19 +336,25 @@ public abstract class BaseExecutor implements Executor {
 
   private <E> List<E> queryFromDatabase(MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, CacheKey key, BoundSql boundSql) throws SQLException {
     List<E> list;
+    // 先在缓存里面丢一个占位符，防止缓存穿透
     localCache.putObject(key, EXECUTION_PLACEHOLDER);
     try {
+      // 执行查询,子类实现
       list = doQuery(ms, parameter, rowBounds, resultHandler, boundSql);
     } finally {
+      // 删除占位符
       localCache.removeObject(key);
     }
+    // 添加实际缓存(为啥不直接put吧之前的顶掉。。)
     localCache.putObject(key, list);
+    // 如果是存储过程，缓存参数
     if (ms.getStatementType() == StatementType.CALLABLE) {
       localOutputParameterCache.putObject(key, parameter);
     }
     return list;
   }
 
+  // 日志打印，使用 JDK 的动态代理，代理接口 Connection Statement ResultSet
   protected Connection getConnection(Log statementLog) throws SQLException {
     Connection connection = transaction.getConnection();
     if (statementLog.isDebugEnabled()) {

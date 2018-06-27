@@ -23,6 +23,9 @@ import java.sql.Statement;
 import java.util.List;
 
 /**
+ * 返回结果处理
+ * 只有默认实现 DefaultResultSetHandler
+ * 重点前两个方法
  * @author Clinton Begin
  */
 public interface ResultSetHandler {

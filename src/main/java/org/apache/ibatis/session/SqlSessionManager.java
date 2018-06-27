@@ -352,15 +352,16 @@ public class SqlSessionManager implements SqlSessionFactory, SqlSession {
           throw ExceptionUtil.unwrapThrowable(t);
         }
       } else {
-        try (SqlSession autoSqlSession = openSession()) {
-          try {
-            final Object result = method.invoke(autoSqlSession, args);
-            autoSqlSession.commit();
-            return result;
-          } catch (Throwable t) {
-            autoSqlSession.rollback();
-            throw ExceptionUtil.unwrapThrowable(t);
-          }
+        final SqlSession autoSqlSession = openSession();
+        try {
+          final Object result = method.invoke(autoSqlSession, args);
+          autoSqlSession.commit();
+          return result;
+        } catch (Throwable t) {
+          autoSqlSession.rollback();
+          throw ExceptionUtil.unwrapThrowable(t);
+        } finally {
+          autoSqlSession.close();
         }
       }
     }

@@ -32,16 +32,19 @@ import org.apache.ibatis.transaction.TransactionFactory;
 import org.apache.ibatis.transaction.managed.ManagedTransactionFactory;
 
 /**
+ * 这个类的主要作用是获取 SqlSession
  * @author Clinton Begin
  */
 public class DefaultSqlSessionFactory implements SqlSessionFactory {
 
   private final Configuration configuration;
 
+  // 构建 SqlSessionFactory ，只是将 Configuration 对象传过来的
   public DefaultSqlSessionFactory(Configuration configuration) {
     this.configuration = configuration;
   }
 
+  // openSession 方法，主要调用的是这个（在与 spring 集成的时候，实际业务开发不直接用 SqlSession）
   @Override
   public SqlSession openSession() {
     return openSessionFromDataSource(configuration.getDefaultExecutorType(), null, false);
@@ -87,13 +90,19 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
     return configuration;
   }
 
+  // 从 数据源 获取
   private SqlSession openSessionFromDataSource(ExecutorType execType, TransactionIsolationLevel level, boolean autoCommit) {
     Transaction tx = null;
     try {
+      // 环境配置(事务和数据源)
       final Environment environment = configuration.getEnvironment();
+      // 获取事务工厂，如果没有配置就用默认的
       final TransactionFactory transactionFactory = getTransactionFactoryFromEnvironment(environment);
+      // 新建事务类（管理事务的 Transaction ）
       tx = transactionFactory.newTransaction(environment.getDataSource(), level, autoCommit);
+      // 构造执行器（根据 type 分为 batch，reuse，simple）
       final Executor executor = configuration.newExecutor(tx, execType);
+      // 构造默认的 SqlSession 实现
       return new DefaultSqlSession(configuration, executor, autoCommit);
     } catch (Exception e) {
       closeTransaction(tx); // may have fetched a connection so lets call close()
@@ -103,6 +112,7 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
     }
   }
 
+  // 从 数据库连接 获取
   private SqlSession openSessionFromConnection(ExecutorType execType, Connection connection) {
     try {
       boolean autoCommit;
@@ -125,6 +135,7 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
     }
   }
 
+  // 获取事物管理实现（之所以有这个，是为了方便与其他容器集成）
   private TransactionFactory getTransactionFactoryFromEnvironment(Environment environment) {
     if (environment == null || environment.getTransactionFactory() == null) {
       return new ManagedTransactionFactory();

@@ -33,12 +33,14 @@ import org.apache.ibatis.session.RowBounds;
 import org.apache.ibatis.transaction.Transaction;
 
 /**
+ * 在更新的是刷新缓存，在查询的时候使用缓存
  * @author Clinton Begin
  * @author Eduardo Macarron
  */
 public class CachingExecutor implements Executor {
 
   private final Executor delegate;
+  // 事务管理器缓存
   private final TransactionalCacheManager tcm = new TransactionalCacheManager();
 
   public CachingExecutor(Executor delegate) {
@@ -92,20 +94,29 @@ public class CachingExecutor implements Executor {
   @Override
   public <E> List<E> query(MappedStatement ms, Object parameterObject, RowBounds rowBounds, ResultHandler resultHandler, CacheKey key, BoundSql boundSql)
       throws SQLException {
+    // 获取 cache，可能开了二级缓存，但是对应的 mapper 没有定义，二级缓存的粒度是到 mapper 的
+    // 这里的 cache 是跟 ms 绑定的
     Cache cache = ms.getCache();
     if (cache != null) {
+      // 看是否需要刷新缓存
       flushCacheIfRequired(ms);
       if (ms.isUseCache() && resultHandler == null) {
+        // 这里是 callable 需要的
         ensureNoOutParams(ms, boundSql);
+        // 先从缓存里面获取
         @SuppressWarnings("unchecked")
         List<E> list = (List<E>) tcm.getObject(cache, key);
         if (list == null) {
+          // 没有就去查询，这里没有缓存穿透处理，处理再一级缓存里面
+          // 一级缓存，就是跟 executor 绑定的
           list = delegate.<E> query(ms, parameterObject, rowBounds, resultHandler, key, boundSql);
+          // 放入缓存
           tcm.putObject(cache, key, list); // issue #578 and #116
         }
         return list;
       }
     }
+    // 如果没有定义缓存，直接查询
     return delegate.<E> query(ms, parameterObject, rowBounds, resultHandler, key, boundSql);
   }
 
@@ -163,6 +174,7 @@ public class CachingExecutor implements Executor {
 
   private void flushCacheIfRequired(MappedStatement ms) {
     Cache cache = ms.getCache();
+    // 这里 ms 代表一条sql，或者一个方法，每个方法都可以单独设置是否刷新缓存，默认是 查询不刷新，增删改刷新
     if (cache != null && ms.isFlushCacheRequired()) {      
       tcm.clear(cache);
     }

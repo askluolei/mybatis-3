@@ -51,6 +51,7 @@ public class XMLScriptBuilder extends BaseBuilder {
   }
 
 
+  // 构造的时候初始化对应标签的处理类
   private void initNodeHandlerMap() {
     nodeHandlerMap.put("trim", new TrimHandler());
     nodeHandlerMap.put("where", new WhereHandler());
@@ -64,8 +65,10 @@ public class XMLScriptBuilder extends BaseBuilder {
   }
 
   public SqlSource parseScriptNode() {
+    // 解析 mapper sql 语句标签（增删改查的）
     MixedSqlNode rootSqlNode = parseDynamicTags(context);
     SqlSource sqlSource = null;
+    // 看是否为动态的
     if (isDynamic) {
       sqlSource = new DynamicSqlSource(configuration, rootSqlNode);
     } else {
@@ -75,13 +78,17 @@ public class XMLScriptBuilder extends BaseBuilder {
   }
 
   protected MixedSqlNode parseDynamicTags(XNode node) {
+    // 解析过程就是按照顺序解析到阶段，添加到 list 里面（SqlNode），最后构建 MixedSqlNode
+    // 这里只是单纯的获取xml信息，具体解析再 SqlNode 的 apply 方法，会依次调用list的 SqlNode
     List<SqlNode> contents = new ArrayList<>();
     NodeList children = node.getNode().getChildNodes();
     for (int i = 0; i < children.getLength(); i++) {
       XNode child = node.newXNode(children.item(i));
+      // 文本 或者 转义文本 或者标签 foreach if 之类的
       if (child.getNode().getNodeType() == Node.CDATA_SECTION_NODE || child.getNode().getNodeType() == Node.TEXT_NODE) {
         String data = child.getStringBody("");
         TextSqlNode textSqlNode = new TextSqlNode(data);
+        // 貌似始终是 dynamic
         if (textSqlNode.isDynamic()) {
           contents.add(textSqlNode);
           isDynamic = true;

@@ -34,6 +34,8 @@ import org.apache.ibatis.session.RowBounds;
 import org.apache.ibatis.transaction.Transaction;
 
 /**
+ * 重复使用 Statement
+ * key 为 sql
  * @author Clinton Begin
  */
 public class ReuseExecutor extends BaseExecutor {
@@ -81,6 +83,7 @@ public class ReuseExecutor extends BaseExecutor {
     Statement stmt;
     BoundSql boundSql = handler.getBoundSql();
     String sql = boundSql.getSql();
+    // 区别在这里，保存 Statement，重复利用。只要连接没关闭，就可以一直执行，执行完成后也不关闭 Statement
     if (hasStatementFor(sql)) {
       stmt = getStatement(sql);
       applyTransactionTimeout(stmt);

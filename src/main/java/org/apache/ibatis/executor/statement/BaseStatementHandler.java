@@ -34,6 +34,9 @@ import org.apache.ibatis.session.RowBounds;
 import org.apache.ibatis.type.TypeHandlerRegistry;
 
 /**
+ * StatementHandler 的基类
+ * 实现一些模板方法
+ *
  * @author Clinton Begin
  */
 public abstract class BaseStatementHandler implements StatementHandler {
@@ -60,13 +63,18 @@ public abstract class BaseStatementHandler implements StatementHandler {
     this.objectFactory = configuration.getObjectFactory();
 
     if (boundSql == null) { // issue #435, get the key before calculating the statement
+      // 生成字段，执行sql之前处理
       generateKeys(parameterObject);
+      //  statementHandler 每次都是 new 的，这里每次重新获取 sql，里面涉及到解析过程（动态sql可能跟参数相关）
       boundSql = mappedStatement.getBoundSql(parameterObject);
     }
 
+    // sql
     this.boundSql = boundSql;
 
+    // 参数处理类
     this.parameterHandler = configuration.newParameterHandler(mappedStatement, parameterObject, boundSql);
+    // 结果处理类
     this.resultSetHandler = configuration.newResultSetHandler(executor, mappedStatement, rowBounds, parameterHandler, resultHandler, boundSql);
   }
 
@@ -80,13 +88,17 @@ public abstract class BaseStatementHandler implements StatementHandler {
     return parameterHandler;
   }
 
+  // 获取 Statement ，以及设置一些参数
   @Override
   public Statement prepare(Connection connection, Integer transactionTimeout) throws SQLException {
     ErrorContext.instance().sql(boundSql.getSql());
     Statement statement = null;
     try {
+      // 生成 Statement 子类实现
       statement = instantiateStatement(connection);
+      // 设置查询超时时间
       setStatementTimeout(statement, transactionTimeout);
+      // 设置每次去数据库获取数据的大小（当一次获取过多的数据时候，可能会内存溢出，设置这个参数，在获取结果集的时候循环去取）
       setFetchSize(statement);
       return statement;
     } catch (SQLException e) {

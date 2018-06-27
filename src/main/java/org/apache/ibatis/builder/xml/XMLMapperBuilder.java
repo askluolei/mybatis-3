@@ -89,8 +89,11 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   public void parse() {
     if (!configuration.isResourceLoaded(resource)) {
+      // 解析 xml
       configurationElement(parser.evalNode("/mapper"));
+      // 标记为已经解析过的资源
       configuration.addLoadedResource(resource);
+      // 这里尝试根据 namespace 找到对应接口，注册 Mapper，所以，namespace 建议跟对应接口名保持一致，id 跟方法名保持一致
       bindMapperForNamespace();
     }
 
@@ -105,16 +108,25 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void configurationElement(XNode context) {
     try {
+      // namespace
       String namespace = context.getStringAttribute("namespace");
       if (namespace == null || namespace.equals("")) {
         throw new BuilderException("Mapper's namespace cannot be empty");
       }
+      // 设置当前 namespace
       builderAssistant.setCurrentNamespace(namespace);
+      // 解析对应标签
+      // 公用一个缓存对象的标签
       cacheRefElement(context.evalNode("cache-ref"));
+      // mapper 的缓存设置
       cacheElement(context.evalNode("cache"));
+      // 参数map，这个可能以后会废弃，就不看了
       parameterMapElement(context.evalNodes("/mapper/parameterMap"));
+      // 结果集map，这个经常用到，特别是自定义返回
       resultMapElements(context.evalNodes("/mapper/resultMap"));
+      // sql 标签，公用的sql语句
       sqlElement(context.evalNodes("/mapper/sql"));
+      // 增删改查语句
       buildStatementFromContext(context.evalNodes("select|insert|update|delete"));
     } catch (Exception e) {
       throw new BuilderException("Error parsing Mapper XML. The XML location is '" + resource + "'. Cause: " + e, e);
@@ -186,9 +198,11 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void cacheRefElement(XNode context) {
     if (context != null) {
+      // 先配置类添加这个配置
       configuration.addCacheRef(builderAssistant.getCurrentNamespace(), context.getStringAttribute("namespace"));
       CacheRefResolver cacheRefResolver = new CacheRefResolver(builderAssistant, context.getStringAttribute("namespace"));
       try {
+        // 这里的解析，只是看看引用的namespace 在前面解析没（就是有对应namespace的缓存配置不），如果没解析那就添加一些未解析，等后面解析
         cacheRefResolver.resolveCacheRef();
       } catch (IncompleteElementException e) {
         configuration.addIncompleteCacheRef(cacheRefResolver);
@@ -198,15 +212,24 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void cacheElement(XNode context) throws Exception {
     if (context != null) {
+      // type 可以是别名（内建的cache），也可以是cache类全名（自定义cache可以用）
       String type = context.getStringAttribute("type", "PERPETUAL");
+      // 根据别名获取class，如果存在，就返回对应 class，如果不存在，就加载类名
       Class<? extends Cache> typeClass = typeAliasRegistry.resolveAlias(type);
+      // 回收策略,这里的 Cache 是对上面的包装
       String eviction = context.getStringAttribute("eviction", "LRU");
       Class<? extends Cache> evictionClass = typeAliasRegistry.resolveAlias(eviction);
+      // 刷新间隔
       Long flushInterval = context.getLongAttribute("flushInterval");
+      // 对象数量
       Integer size = context.getIntAttribute("size");
+      // 只读
       boolean readWrite = !context.getBooleanAttribute("readOnly", false);
+      // 阻塞
       boolean blocking = context.getBooleanAttribute("blocking", false);
+      // 其他自定义属性
       Properties props = context.getChildrenAsProperties();
+      // 添加缓存实例到 配置中
       builderAssistant.useNewCache(typeClass, evictionClass, flushInterval, size, readWrite, blocking, props);
     }
   }
@@ -254,14 +277,19 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private ResultMap resultMapElement(XNode resultMapNode, List<ResultMapping> additionalResultMappings) throws Exception {
     ErrorContext.instance().activity("processing " + resultMapNode.getValueBasedIdentifier());
+    // id
     String id = resultMapNode.getStringAttribute("id",
         resultMapNode.getValueBasedIdentifier());
+    // 返回对象类型
     String type = resultMapNode.getStringAttribute("type",
         resultMapNode.getStringAttribute("ofType",
             resultMapNode.getStringAttribute("resultType",
                 resultMapNode.getStringAttribute("javaType"))));
+    // 继承哪个 resultMap
     String extend = resultMapNode.getStringAttribute("extends");
+    // 自动映射
     Boolean autoMapping = resultMapNode.getBooleanAttribute("autoMapping");
+    // 解析class
     Class<?> typeClass = resolveClass(type);
     Discriminator discriminator = null;
     List<ResultMapping> resultMappings = new ArrayList<>();
@@ -269,10 +297,13 @@ public class XMLMapperBuilder extends BaseBuilder {
     List<XNode> resultChildren = resultMapNode.getChildren();
     for (XNode resultChild : resultChildren) {
       if ("constructor".equals(resultChild.getName())) {
+        // 处理构造
         processConstructorElement(resultChild, typeClass, resultMappings);
       } else if ("discriminator".equals(resultChild.getName())) {
+        // 根据结果值决定使用哪个 resultMap 或者 type
         discriminator = processDiscriminatorElement(resultChild, typeClass, resultMappings);
       } else {
+        // 其他就是 id result association collection
         List<ResultFlag> flags = new ArrayList<>();
         if ("id".equals(resultChild.getName())) {
           flags.add(ResultFlag.ID);
@@ -331,6 +362,7 @@ public class XMLMapperBuilder extends BaseBuilder {
       String databaseId = context.getStringAttribute("databaseId");
       String id = context.getStringAttribute("id");
       id = builderAssistant.applyCurrentNamespace(id, false);
+      // 只put 对应数据库的sql
       if (databaseIdMatchesCurrent(id, databaseId, requiredDatabaseId)) {
         sqlFragments.put(id, context);
       }
@@ -339,10 +371,12 @@ public class XMLMapperBuilder extends BaseBuilder {
   
   private boolean databaseIdMatchesCurrent(String id, String databaseId, String requiredDatabaseId) {
     if (requiredDatabaseId != null) {
+      // 识别出了 requiredDatabaseId 数据库，跟 databaseId 不同 ，不匹配，false
       if (!requiredDatabaseId.equals(databaseId)) {
         return false;
       }
     } else {
+      // 如果没识别出当前使用的数据库 requiredDatabaseId，但是sql 语句指定了 databaseId 返回false
       if (databaseId != null) {
         return false;
       }

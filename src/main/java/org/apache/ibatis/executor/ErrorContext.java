@@ -16,6 +16,8 @@
 package org.apache.ibatis.executor;
 
 /**
+ * 这个类，用来记录执行时候的一些信息，当出现异常时，输出
+ * 譬如 sql定义来源等
  * @author Clinton Begin
  */
 public class ErrorContext {

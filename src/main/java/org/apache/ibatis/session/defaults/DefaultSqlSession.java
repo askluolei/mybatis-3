@@ -41,6 +41,14 @@ import org.apache.ibatis.session.SqlSession;
 
 /**
  *
+ * 这个是默认实现，注意要手动关闭
+ * 非线程安全
+ * 所以得每个方法内部使用
+ *
+ * 大部分时候，调用的是 selectOne selectList insert update delete getMapper
+ * 可以看到实际执行时在 executor 中
+ * 这里只做前后处理（找到对应的 statement ，结果处理，事务处理）
+ *
  * The default implementation for {@link SqlSession}.
  * Note that this class is not Thread-Safe.
  *
@@ -117,6 +125,14 @@ public class DefaultSqlSession implements SqlSession {
     return selectCursor(statement, parameter, RowBounds.DEFAULT);
   }
 
+  /**
+   * 这里是 selectCursor 最终实现的地方
+   * @param statement Unique identifier matching the statement to use.
+   * @param parameter A parameter object to pass to the statement.
+   * @param rowBounds  Bounds to limit object retrieval
+   * @param <T>
+   * @return
+   */
   @Override
   public <T> Cursor<T> selectCursor(String statement, Object parameter, RowBounds rowBounds) {
     try {
@@ -141,10 +157,21 @@ public class DefaultSqlSession implements SqlSession {
     return this.selectList(statement, parameter, RowBounds.DEFAULT);
   }
 
+  /**
+   * 这里就是 selectOne selectList 最终执行的地方
+   * @param statement Unique identifier matching the statement to use.
+   * @param parameter A parameter object to pass to the statement.
+   * @param rowBounds  Bounds to limit object retrieval
+   * @param <E>
+   * @return
+   */
   @Override
   public <E> List<E> selectList(String statement, Object parameter, RowBounds rowBounds) {
     try {
+      // 获取对应的 MappedStatement ，就是根据key（namespace） 对应的 sql 已经其他相关信息
+      // 这里的 MappedStatement 是有 xml 定义的
       MappedStatement ms = configuration.getMappedStatement(statement);
+      // 然后执行，用 map 包装集合类（collection，list，array）
       return executor.query(ms, wrapCollection(parameter), rowBounds, Executor.NO_RESULT_HANDLER);
     } catch (Exception e) {
       throw ExceptionFactory.wrapException("Error querying database.  Cause: " + e, e);
@@ -163,6 +190,13 @@ public class DefaultSqlSession implements SqlSession {
     select(statement, null, RowBounds.DEFAULT, handler);
   }
 
+  /**
+   * 这里是查询语句+自定义处理返回的 查询实现
+   * @param statement Unique identifier matching the statement to use.
+   * @param parameter
+   * @param rowBounds RowBound instance to limit the query results
+   * @param handler ResultHandler that will handle each retrieved row
+   */
   @Override
   public void select(String statement, Object parameter, RowBounds rowBounds, ResultHandler handler) {
     try {
@@ -190,6 +224,12 @@ public class DefaultSqlSession implements SqlSession {
     return update(statement, null);
   }
 
+  /**
+   * insert update delete 最终执行的地方
+   * @param statement Unique identifier matching the statement to execute.
+   * @param parameter A parameter object to pass to the statement.
+   * @return
+   */
   @Override
   public int update(String statement, Object parameter) {
     try {
@@ -213,11 +253,18 @@ public class DefaultSqlSession implements SqlSession {
     return update(statement, parameter);
   }
 
+  /**
+   * 事务提交
+   */
   @Override
   public void commit() {
     commit(false);
   }
 
+  /**
+   * 事务强制提交
+   * @param force forces connection commit
+   */
   @Override
   public void commit(boolean force) {
     try {
@@ -230,11 +277,18 @@ public class DefaultSqlSession implements SqlSession {
     }
   }
 
+  /**
+   * 事务回滚
+   */
   @Override
   public void rollback() {
     rollback(false);
   }
 
+  /**
+   * 事务强制回滚
+   * @param force forces connection rollback
+   */
   @Override
   public void rollback(boolean force) {
     try {
@@ -247,6 +301,10 @@ public class DefaultSqlSession implements SqlSession {
     }
   }
 
+  /**
+   * flush 语句
+   * @return
+   */
   @Override
   public List<BatchResult> flushStatements() {
     try {
@@ -258,6 +316,9 @@ public class DefaultSqlSession implements SqlSession {
     }
   }
 
+  /**
+   * 关闭连接
+   */
   @Override
   public void close() {
     try {
@@ -287,11 +348,21 @@ public class DefaultSqlSession implements SqlSession {
     return configuration;
   }
 
+  /**
+   * 这里调用 configuration 的 getMapper
+   * @param type Mapper interface class
+   * @param <T>
+   * @return
+   */
   @Override
   public <T> T getMapper(Class<T> type) {
     return configuration.<T>getMapper(type, this);
   }
 
+  /**
+   * 获取使用的数据库连接
+   * @return
+   */
   @Override
   public Connection getConnection() {
     try {
@@ -301,6 +372,9 @@ public class DefaultSqlSession implements SqlSession {
     }
   }
 
+  /**
+   * 清空缓存
+   */
   @Override
   public void clearCache() {
     executor.clearLocalCache();

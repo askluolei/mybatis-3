@@ -36,6 +36,8 @@ import org.apache.ibatis.session.RowBounds;
 import org.apache.ibatis.transaction.Transaction;
 
 /**
+ * 批处理执行器，还是得看 StatementHandler 内部是怎么处理的
+ * 批量执行只针对更新操作
  * @author Jeff Butler 
  */
 public class BatchExecutor extends BaseExecutor {
@@ -84,6 +86,7 @@ public class BatchExecutor extends BaseExecutor {
       throws SQLException {
     Statement stmt = null;
     try {
+      // 查询之前，要刷新之前的操作，批量操作通常是用于 更新的
       flushStatements();
       Configuration configuration = ms.getConfiguration();
       StatementHandler handler = configuration.newStatementHandler(wrapper, ms, parameterObject, rowBounds, resultHandler, boundSql);
@@ -98,6 +101,7 @@ public class BatchExecutor extends BaseExecutor {
 
   @Override
   protected <E> Cursor<E> doQueryCursor(MappedStatement ms, Object parameter, RowBounds rowBounds, BoundSql boundSql) throws SQLException {
+    // 同上
     flushStatements();
     Configuration configuration = ms.getConfiguration();
     StatementHandler handler = configuration.newStatementHandler(wrapper, ms, parameter, rowBounds, null, boundSql);
@@ -111,9 +115,11 @@ public class BatchExecutor extends BaseExecutor {
   public List<BatchResult> doFlushStatements(boolean isRollback) throws SQLException {
     try {
       List<BatchResult> results = new ArrayList<>();
+      // 如果要回滚，不执行
       if (isRollback) {
         return Collections.emptyList();
       }
+      // 所谓批量执行，就是准备好 Statement 添加列表中，等待这个方法调用，再执行
       for (int i = 0, n = statementList.size(); i < n; i++) {
         Statement stmt = statementList.get(i);
         applyTransactionTimeout(stmt);

@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2018 the original author or authors.
+ *    Copyright 2009-2017 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -523,9 +523,10 @@ public class PooledDataSource implements DataSource {
               log.debug("Testing connection " + conn.getRealHashCode() + " ...");
             }
             Connection realConn = conn.getRealConnection();
-            try (Statement statement = realConn.createStatement()) {
-              statement.executeQuery(poolPingQuery).close();
-            }
+            Statement statement = realConn.createStatement();
+            ResultSet rs = statement.executeQuery(poolPingQuery);
+            rs.close();
+            statement.close();
             if (!realConn.getAutoCommit()) {
               realConn.rollback();
             }

@@ -38,6 +38,8 @@ import java.lang.reflect.Type;
 import java.util.*;
 
 /**
+ * 这里就是实际执行的地方
+ * 增删改查
  * @author Clinton Begin
  * @author Eduardo Macarron
  * @author Lasse Voss
@@ -49,14 +51,18 @@ public class MapperMethod {
   private final MethodSignature method;
 
   public MapperMethod(Class<?> mapperInterface, Method method, Configuration config) {
+    // 构造 SqlCommand
     this.command = new SqlCommand(config, mapperInterface, method);
+    // 构造方法签名
     this.method = new MethodSignature(config, mapperInterface, method);
   }
 
   public Object execute(SqlSession sqlSession, Object[] args) {
     Object result;
+    // 里面还是调用 SqlSession 的方法
     switch (command.getType()) {
       case INSERT: {
+        // 增删改的返回类型可以是 int long boolean（包括包装类型）
     	Object param = method.convertArgsToSqlCommandParam(args);
         result = rowCountResult(sqlSession.insert(command.getName(), param));
         break;
@@ -72,16 +78,22 @@ public class MapperMethod {
         break;
       }
       case SELECT:
+        // 重点是查询方法的返回处理
         if (method.returnsVoid() && method.hasResultHandler()) {
+          // 如果返回为空，或者自定义返回结果处理
           executeWithResultHandler(sqlSession, args);
           result = null;
         } else if (method.returnsMany()) {
+          // 返回 list 或者 array
           result = executeForMany(sqlSession, args);
         } else if (method.returnsMap()) {
+          // 返回 map
           result = executeForMap(sqlSession, args);
         } else if (method.returnsCursor()) {
+          // 返回游标
           result = executeForCursor(sqlSession, args);
         } else {
+          // 其他情况 java8 的 Optional
           Object param = method.convertArgsToSqlCommandParam(args);
           result = sqlSession.selectOne(command.getName(), param);
           if (method.returnsOptional() &&
@@ -223,6 +235,7 @@ public class MapperMethod {
     public SqlCommand(Configuration configuration, Class<?> mapperInterface, Method method) {
       final String methodName = method.getName();
       final Class<?> declaringClass = method.getDeclaringClass();
+      // 获取 sql 定义（xml里面的），根据接口名（包括父接口）+方法名
       MappedStatement ms = resolveMappedStatement(mapperInterface, methodName, declaringClass,
           configuration);
       if (ms == null) {
@@ -234,6 +247,7 @@ public class MapperMethod {
               + mapperInterface.getName() + "." + methodName);
         }
       } else {
+        // 如果有定义，那么久正常流程
         name = ms.getId();
         type = ms.getSqlCommandType();
         if (type == SqlCommandType.UNKNOWN) {

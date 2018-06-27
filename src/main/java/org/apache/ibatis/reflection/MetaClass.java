@@ -132,6 +132,9 @@ public class MetaClass {
   }
 
   public boolean hasSetter(String name) {
+    /**
+     * 这里就是支持配置 abc.def 只允许两层
+     */
     PropertyTokenizer prop = new PropertyTokenizer(name);
     if (prop.hasNext()) {
       if (reflector.hasSetter(prop.getName())) {

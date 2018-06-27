@@ -29,6 +29,7 @@ import org.apache.ibatis.scripting.LanguageDriver;
 import org.apache.ibatis.session.Configuration;
 
 /**
+ * 这个类就是对于一个sql语句以及其他相关配置（resultMap parametersMap 等）
  * @author Clinton Begin
  */
 public final class MappedStatement {
@@ -289,6 +290,7 @@ public final class MappedStatement {
   }
   
   public BoundSql getBoundSql(Object parameterObject) {
+    // 重点在 DynamicSqlSource 里面的解析，其他都是静态
     BoundSql boundSql = sqlSource.getBoundSql(parameterObject);
     List<ParameterMapping> parameterMappings = boundSql.getParameterMappings();
     if (parameterMappings == null || parameterMappings.isEmpty()) {

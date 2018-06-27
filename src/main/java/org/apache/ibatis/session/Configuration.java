@@ -92,12 +92,17 @@ import org.apache.ibatis.type.TypeHandler;
 import org.apache.ibatis.type.TypeHandlerRegistry;
 
 /**
+ * 核心配置类
+ * 所有配置都在这里
+ *
  * @author Clinton Begin
  */
 public class Configuration {
 
+  // 环境类，里面有 id 事务工厂 数据源
   protected Environment environment;
 
+  // 一些配置项 可以通过 settings 进行配置
   protected boolean safeRowBoundsEnabled;
   protected boolean safeResultHandlerEnabled = true;
   protected boolean mapUnderscoreToCamelCase;
@@ -122,12 +127,17 @@ public class Configuration {
   protected AutoMappingBehavior autoMappingBehavior = AutoMappingBehavior.PARTIAL;
   protected AutoMappingUnknownColumnBehavior autoMappingUnknownColumnBehavior = AutoMappingUnknownColumnBehavior.NONE;
 
+  // 自定义配置
   protected Properties variables = new Properties();
+  // 反射工厂
   protected ReflectorFactory reflectorFactory = new DefaultReflectorFactory();
+  // 对象工厂（返回对象的创建）
   protected ObjectFactory objectFactory = new DefaultObjectFactory();
+  // 包装对象工厂
   protected ObjectWrapperFactory objectWrapperFactory = new DefaultObjectWrapperFactory();
 
   protected boolean lazyLoadingEnabled = false;
+  // 代理工厂
   protected ProxyFactory proxyFactory = new JavassistProxyFactory(); // #224 Using internal Javassist instead of OGNL
 
   protected String databaseId;
@@ -139,15 +149,24 @@ public class Configuration {
    */
   protected Class<?> configurationFactory;
 
+  // mapper 接口注册器
   protected final MapperRegistry mapperRegistry = new MapperRegistry(this);
+  // 自定义插件链
   protected final InterceptorChain interceptorChain = new InterceptorChain();
+  // java类型 和 数据库类型转换注册器
   protected final TypeHandlerRegistry typeHandlerRegistry = new TypeHandlerRegistry();
+  // 别名注册器
   protected final TypeAliasRegistry typeAliasRegistry = new TypeAliasRegistry();
+  // 驱动注册（xml还是raw或者自定义），不是数据库驱动
   protected final LanguageDriverRegistry languageRegistry = new LanguageDriverRegistry();
 
+  // MappedStatement sql 语句
   protected final Map<String, MappedStatement> mappedStatements = new StrictMap<>("Mapped Statements collection");
+  // 缓存
   protected final Map<String, Cache> caches = new StrictMap<>("Caches collection");
+  // id -》 ResultMap
   protected final Map<String, ResultMap> resultMaps = new StrictMap<>("Result Maps collection");
+  // id -》 ParameterMap
   protected final Map<String, ParameterMap> parameterMaps = new StrictMap<>("Parameter Maps collection");
   protected final Map<String, KeyGenerator> keyGenerators = new StrictMap<>("Key Generators collection");
 
@@ -171,25 +190,34 @@ public class Configuration {
     this.environment = environment;
   }
 
+  // 默认构造方法添加一些默认值
   public Configuration() {
+    // 添加默认的别名
+
+    // 事务类
     typeAliasRegistry.registerAlias("JDBC", JdbcTransactionFactory.class);
     typeAliasRegistry.registerAlias("MANAGED", ManagedTransactionFactory.class);
 
+    // 数据源工厂
     typeAliasRegistry.registerAlias("JNDI", JndiDataSourceFactory.class);
     typeAliasRegistry.registerAlias("POOLED", PooledDataSourceFactory.class);
     typeAliasRegistry.registerAlias("UNPOOLED", UnpooledDataSourceFactory.class);
 
+    // 缓存
     typeAliasRegistry.registerAlias("PERPETUAL", PerpetualCache.class);
     typeAliasRegistry.registerAlias("FIFO", FifoCache.class);
     typeAliasRegistry.registerAlias("LRU", LruCache.class);
     typeAliasRegistry.registerAlias("SOFT", SoftCache.class);
     typeAliasRegistry.registerAlias("WEAK", WeakCache.class);
 
+    // 数据库id识别
     typeAliasRegistry.registerAlias("DB_VENDOR", VendorDatabaseIdProvider.class);
 
+    // 创建 sqlSource 的驱动
     typeAliasRegistry.registerAlias("XML", XMLLanguageDriver.class);
     typeAliasRegistry.registerAlias("RAW", RawLanguageDriver.class);
 
+    // 日志
     typeAliasRegistry.registerAlias("SLF4J", Slf4jImpl.class);
     typeAliasRegistry.registerAlias("COMMONS_LOGGING", JakartaCommonsLoggingImpl.class);
     typeAliasRegistry.registerAlias("LOG4J", Log4jImpl.class);
@@ -198,9 +226,11 @@ public class Configuration {
     typeAliasRegistry.registerAlias("STDOUT_LOGGING", StdOutImpl.class);
     typeAliasRegistry.registerAlias("NO_LOGGING", NoLoggingImpl.class);
 
+    // 代理
     typeAliasRegistry.registerAlias("CGLIB", CglibProxyFactory.class);
     typeAliasRegistry.registerAlias("JAVASSIST", JavassistProxyFactory.class);
 
+    // 设置驱动
     languageRegistry.setDefaultDriverClass(XMLLanguageDriver.class);
     languageRegistry.register(RawLanguageDriver.class);
   }
@@ -556,6 +586,7 @@ public class Configuration {
 
   public StatementHandler newStatementHandler(Executor executor, MappedStatement mappedStatement, Object parameterObject, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql) {
     StatementHandler statementHandler = new RoutingStatementHandler(executor, mappedStatement, parameterObject, rowBounds, resultHandler, boundSql);
+    // 这里就是扩展了，使用插件扩展，主要扩展接口是 Interceptor ，被代理的是 StatementHandler 的实现类
     statementHandler = (StatementHandler) interceptorChain.pluginAll(statementHandler);
     return statementHandler;
   }

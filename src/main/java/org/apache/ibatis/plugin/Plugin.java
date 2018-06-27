@@ -26,6 +26,7 @@ import java.util.Set;
 import org.apache.ibatis.reflection.ExceptionUtil;
 
 /**
+ * JDK 的动态代理，实现 Plugin 扩展
  * @author Clinton Begin
  */
 public class Plugin implements InvocationHandler {
@@ -41,8 +42,11 @@ public class Plugin implements InvocationHandler {
   }
 
   public static Object wrap(Object target, Interceptor interceptor) {
+    // 获取注解数据
     Map<Class<?>, Set<Method>> signatureMap = getSignatureMap(interceptor);
+    // 如果经过多次代理，那这里就是代理对象的 class了
     Class<?> type = target.getClass();
+    // 就是过滤出上面需要的代理的接口，实现代理就行了
     Class<?>[] interfaces = getAllInterfaces(type, signatureMap);
     if (interfaces.length > 0) {
       return Proxy.newProxyInstance(
@@ -57,9 +61,11 @@ public class Plugin implements InvocationHandler {
   public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
     try {
       Set<Method> methods = signatureMap.get(method.getDeclaringClass());
+      // 如果满足条件，就调用拦截器
       if (methods != null && methods.contains(method)) {
         return interceptor.intercept(new Invocation(target, method, args));
       }
+      // 否则调用原本对象的方法
       return method.invoke(target, args);
     } catch (Exception e) {
       throw ExceptionUtil.unwrapThrowable(e);
@@ -69,9 +75,11 @@ public class Plugin implements InvocationHandler {
   private static Map<Class<?>, Set<Method>> getSignatureMap(Interceptor interceptor) {
     Intercepts interceptsAnnotation = interceptor.getClass().getAnnotation(Intercepts.class);
     // issue #251
+    // 看到，Interceptor 扩展 必须要有 Intercepts 注解
     if (interceptsAnnotation == null) {
       throw new PluginException("No @Intercepts annotation was found in interceptor " + interceptor.getClass().getName());      
     }
+    // 拿到所有签名,就是过滤条件。。就是要代理哪个对象的哪个方法，可以指定多个
     Signature[] sigs = interceptsAnnotation.value();
     Map<Class<?>, Set<Method>> signatureMap = new HashMap<>();
     for (Signature sig : sigs) {

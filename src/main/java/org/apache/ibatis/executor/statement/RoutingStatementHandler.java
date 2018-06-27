@@ -30,6 +30,9 @@ import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 
 /**
+ * 这是一个代理
+ * 根据 statement 类型，来构建 SimpleStatementHandler PreparedStatement CallableStatementHandler
+ * 默认是 PREPARED，也就是常用的 PreparedStatement
  * @author Clinton Begin
  */
 public class RoutingStatementHandler implements StatementHandler {

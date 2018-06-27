@@ -105,11 +105,13 @@ public class MapperAnnotationBuilder {
   private final Class<?> type;
 
   static {
+    // 增删改查注解
     SQL_ANNOTATION_TYPES.add(Select.class);
     SQL_ANNOTATION_TYPES.add(Insert.class);
     SQL_ANNOTATION_TYPES.add(Update.class);
     SQL_ANNOTATION_TYPES.add(Delete.class);
 
+    // 增删改查提供注解
     SQL_PROVIDER_ANNOTATION_TYPES.add(SelectProvider.class);
     SQL_PROVIDER_ANNOTATION_TYPES.add(InsertProvider.class);
     SQL_PROVIDER_ANNOTATION_TYPES.add(UpdateProvider.class);
@@ -124,18 +126,29 @@ public class MapperAnnotationBuilder {
   }
 
   public void parse() {
+    // 注解解析
     String resource = type.toString();
+    // 如果对应接口的xml资源未解析（同名。xml，非必须），先去解析
     if (!configuration.isResourceLoaded(resource)) {
+      // 加载xml,可能没这个资源，无所谓
       loadXmlResource();
+      // 设置为已经加载的资源
       configuration.addLoadedResource(resource);
+      // 设置当前解析的 namespace
       assistant.setCurrentNamespace(type.getName());
+      // 解析缓存注解配置 @CacheNamespace
       parseCache();
+      // 解析共享缓存注解配置 @CacheNamespaceRef
       parseCacheRef();
+      // 每个方法单独解析
       Method[] methods = type.getMethods();
       for (Method method : methods) {
         try {
           // issue #237
+          // 泛型擦除的原因，要过滤掉桥接方法
+          // 什么是泛型擦除，就是 <T> 如果指定泛型 String，实际上会有两个方法 一个 Object 一个 String ，Object 那个方法就是桥接方法
           if (!method.isBridge()) {
+            // 解析方法上的注解了
             parseStatement(method);
           }
         } catch (IncompleteElementException e) {
@@ -289,10 +302,14 @@ public class MapperAnnotationBuilder {
   }
 
   void parseStatement(Method method) {
+    // 获取参数类型, RowBounds ResultHandler 相当于系统参数，排除这两个类型的参数，如果是多参数，那么就是内部的 ParamMap 包装，否则就是该参数类型
     Class<?> parameterTypeClass = getParameterType(method);
+    // 这个通常不会该，默认就是 xml  PS：什么是 LanguageDriver，mybatis 的本质就是将sql写在文本，然后加载成 SqlSource，默认是写在xml，也可以写 Velocity 模板，或者原生 sql
     LanguageDriver languageDriver = getLanguageDriver(method);
+    // 这里就是解析 Sql 了，通过解析注解
     SqlSource sqlSource = getSqlSourceFromAnnotations(method, parameterTypeClass, languageDriver);
     if (sqlSource != null) {
+      // 设置参数（系统参数）
       Options options = method.getAnnotation(Options.class);
       final String mappedStatementId = type.getName() + "." + method.getName();
       Integer fetchSize = null;
@@ -309,6 +326,7 @@ public class MapperAnnotationBuilder {
       String keyColumn = null;
       if (SqlCommandType.INSERT.equals(sqlCommandType) || SqlCommandType.UPDATE.equals(sqlCommandType)) {
         // first check for SelectKey annotation - that overrides everything else
+        // 字段生成
         SelectKey selectKey = method.getAnnotation(SelectKey.class);
         if (selectKey != null) {
           keyGenerator = handleSelectKeyAnnotation(selectKey, mappedStatementId, getParameterType(method), languageDriver);
@@ -324,6 +342,7 @@ public class MapperAnnotationBuilder {
         keyGenerator = NoKeyGenerator.INSTANCE;
       }
 
+      // 设置参数
       if (options != null) {
         if (FlushCachePolicy.TRUE.equals(options.flushCache())) {
           flushCache = true;
@@ -338,6 +357,7 @@ public class MapperAnnotationBuilder {
       }
 
       String resultMapId = null;
+      // resultMap
       ResultMap resultMapAnnotation = method.getAnnotation(ResultMap.class);
       if (resultMapAnnotation != null) {
         String[] resultMaps = resultMapAnnotation.value();
@@ -350,6 +370,7 @@ public class MapperAnnotationBuilder {
         }
         resultMapId = sb.toString();
       } else if (isSelect) {
+        // 生成 resultMap
         resultMapId = parseResultMap(method);
       }
 
@@ -465,17 +486,25 @@ public class MapperAnnotationBuilder {
 
   private SqlSource getSqlSourceFromAnnotations(Method method, Class<?> parameterType, LanguageDriver languageDriver) {
     try {
+      // 获取增删改查注解（肯定只能有一个啦）
       Class<? extends Annotation> sqlAnnotationType = getSqlAnnotationType(method);
+      // 或者增删改查Provider注解（同上一个）
       Class<? extends Annotation> sqlProviderAnnotationType = getSqlProviderAnnotationType(method);
       if (sqlAnnotationType != null) {
+        // 如果有增删改查注解
         if (sqlProviderAnnotationType != null) {
+          // 增删改查和 provider 不能同时存在
           throw new BindingException("You cannot supply both a static SQL and SqlProvider to method named " + method.getName());
         }
         Annotation sqlAnnotation = method.getAnnotation(sqlAnnotationType);
+        // 获取value[]
         final String[] strings = (String[]) sqlAnnotation.getClass().getMethod("value").invoke(sqlAnnotation);
+        // 获取 SqlSource，这个就是根据原始 sql 创建，很简单
         return buildSqlSourceFromStrings(strings, parameterType, languageDriver);
       } else if (sqlProviderAnnotationType != null) {
+        // 如果是 Provider 的请求
         Annotation sqlProviderAnnotation = method.getAnnotation(sqlProviderAnnotationType);
+        // 通过 provider 构造 SqlSource，所谓 Provider，其实就是指定一个 class 的默认方法 method 为 sql 提供者，返回类型为 CharSequence，参数就是接受参数（系统参数可以直接设置进去）
         return new ProviderSqlSource(assistant.getConfiguration(), sqlProviderAnnotation, type, method);
       }
       return null;

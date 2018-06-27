@@ -28,6 +28,8 @@ import org.apache.ibatis.reflection.ExceptionUtil;
 import org.apache.ibatis.session.SqlSession;
 
 /**
+ * 通过 getMapper 获取的接口
+ * 确切的说，直接使用 modelNameMapper 里面的方法的，都是走这个代理
  * @author Clinton Begin
  * @author Eduardo Macarron
  */
@@ -48,14 +50,18 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
   public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
     try {
       if (Object.class.equals(method.getDeclaringClass())) {
+        // Object 类里面的方法 toString 之类的
         return method.invoke(this, args);
       } else if (isDefaultMethod(method)) {
+        // 默认方法 接口的默认方法
         return invokeDefaultMethod(proxy, method, args);
       }
     } catch (Throwable t) {
       throw ExceptionUtil.unwrapThrowable(t);
     }
+    // 或者 MapperMethod 对象，不需要重复创建，有缓存
     final MapperMethod mapperMethod = cachedMapperMethod(method);
+    // 调用方法
     return mapperMethod.execute(sqlSession, args);
   }
 
@@ -63,6 +69,15 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
     return methodCache.computeIfAbsent(method, k -> new MapperMethod(mapperInterface, method, sqlSession.getConfiguration()));
   }
 
+  /**
+   * 调用接口的默认方法
+   * 这些 API 第一次见
+   * @param proxy
+   * @param method
+   * @param args
+   * @return
+   * @throws Throwable
+   */
   @UsesJava7
   private Object invokeDefaultMethod(Object proxy, Method method, Object[] args)
       throws Throwable {

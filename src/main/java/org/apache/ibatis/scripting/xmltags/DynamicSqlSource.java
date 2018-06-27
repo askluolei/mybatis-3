@@ -37,12 +37,17 @@ public class DynamicSqlSource implements SqlSource {
 
   @Override
   public BoundSql getBoundSql(Object parameterObject) {
+    // 构建 DynamicContext
     DynamicContext context = new DynamicContext(configuration, parameterObject);
+    // 这里的 SqlNode 是 MixedSqlNode ，内部包含 SqlNode 的一个list，对list 里面按顺序依次解析，具体的解析过程，可以看对应 Node 里面
     rootSqlNode.apply(context);
     SqlSourceBuilder sqlSourceParser = new SqlSourceBuilder(configuration);
     Class<?> parameterType = parameterObject == null ? Object.class : parameterObject.getClass();
+    // 这里的 getBindings 默认带有两个参数 _databaseId 和 _parameter， 动态sql 经过上面的解析后，就变成静态的了，#{} 就换成了 ? 了
     SqlSource sqlSource = sqlSourceParser.parse(context.getSql(), parameterType, context.getBindings());
+    // 获取 BoundSql
     BoundSql boundSql = sqlSource.getBoundSql(parameterObject);
+    // 传递内部参数
     for (Map.Entry<String, Object> entry : context.getBindings().entrySet()) {
       boundSql.setAdditionalParameter(entry.getKey(), entry.getValue());
     }

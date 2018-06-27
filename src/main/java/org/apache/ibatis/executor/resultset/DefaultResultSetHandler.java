@@ -174,6 +174,7 @@ public class DefaultResultSetHandler implements ResultSetHandler {
     }
   }
 
+  // 解析过程老复杂了
   //
   // HANDLE RESULT SETS
   //
@@ -184,10 +185,12 @@ public class DefaultResultSetHandler implements ResultSetHandler {
     final List<Object> multipleResults = new ArrayList<>();
 
     int resultSetCount = 0;
+    // 包装一下
     ResultSetWrapper rsw = getFirstResultSet(stmt);
-
+    // 获取 resultMap 可能有内联的
     List<ResultMap> resultMaps = mappedStatement.getResultMaps();
     int resultMapCount = resultMaps.size();
+    // 验证，数量
     validateResultMapsCount(rsw, resultMapCount);
     while (rsw != null && resultMapCount > resultSetCount) {
       ResultMap resultMap = resultMaps.get(resultSetCount);

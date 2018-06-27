@@ -73,17 +73,17 @@ public class DefaultVFS extends VFS {
             // Some versions of JBoss VFS might give a JAR stream even if the resource
             // referenced by the URL isn't actually a JAR
             is = url.openStream();
-            try (JarInputStream jarInput = new JarInputStream(is)) {
-              if (log.isDebugEnabled()) {
-                log.debug("Listing " + url);
-              }
-              for (JarEntry entry; (entry = jarInput.getNextJarEntry()) != null; ) {
-                if (log.isDebugEnabled()) {
-                  log.debug("Jar entry: " + entry.getName());
-                }
-                children.add(entry.getName());
-              }
+            JarInputStream jarInput = new JarInputStream(is);
+            if (log.isDebugEnabled()) {
+              log.debug("Listing " + url);
             }
+            for (JarEntry entry; (entry = jarInput.getNextJarEntry()) != null;) {
+              if (log.isDebugEnabled()) {
+                log.debug("Jar entry: " + entry.getName());
+              }
+              children.add(entry.getName());
+            }
+            jarInput.close();
           }
           else {
             /*
